@@ -208,6 +208,15 @@ for a ZenPack.
 
         if name in ('object', 'tomany', 'tomanycont'):
             obj = self.objstack.pop()
+            if obj.getNodeName() in ('MibNode', 'MibNotification'):
+                oid_list = [i.getObject() for i in self.dmd.Mibs.mibSearch(oid=obj.oid)]
+                for old_oid in oid_list:
+                    if old_oid.moduleName != obj.moduleName:
+                        self.log.warn("OID '%s' will be removed from organizer '%s', "
+                                      "new one will be added to  organizer '%s'.", obj.oid,
+                                      old_oid.moduleName, obj.moduleName)
+                    old_oid.getParentNode()._delObject(old_oid.id)
+
             notify(IndexingEvent(obj))
             if hasattr(aq_base(obj), 'index_object'):
                obj.index_object()
