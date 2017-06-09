@@ -782,6 +782,10 @@ class ZenMib(ZCmdBase):
                     self.log.warn("Found a zero index in OID"
                                   " '%s' -- converting to '%s'",
                                   oid, values['oid'])
+                    # if OID before convertion already exists in ZODB, remove it to avoid 'id' conflict
+                    oid_list = [i.getObject() for i in self.dmd.Mibs.mibSearch(oid=oid)]
+                    for oid_obj in oid_list:
+                        oid_obj.getParentNode()._delObject(oid_obj.id)
             
             try:
                 functor(name, **values)
