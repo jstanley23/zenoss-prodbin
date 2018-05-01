@@ -16,7 +16,7 @@ from Products.PluggableAuthService.interfaces.plugins import (IExtractionPlugin,
 from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
 from Products.PluggableAuthService.utils import classImplements
 from Products.ZenUtils.AuthUtils import getJWKS, publicKeysFromJWKS
-from Products.ZenUtils.CSEUtils import getZenossURI
+from Products.ZenUtils.CSEUtils import getZenossURI, getZingURI
 from Products.ZenUtils.GlobalConfig import getGlobalConfiguration
 from Products.ZenUtils.PASUtils import activatePluginForInterfaces, movePluginToTop
 
@@ -160,24 +160,34 @@ class Auth0(BasePlugin):
         return Auth0.storeIdToken(id_token, session, conf, refresh_token)
 
 
-    def resetCredentials(self, request, response):
-        """resetCredentials satisfies the PluggableAuthService
-            ICredentialsResetPlugin interface.
-        The Auth0 session variables are cleared and the user is redirected to
-            the Auth0 logout in order to end their Auth0 SSO session.
-        NOTE:
-        Logging out of the UI calls Products/ZenModel/skins/zenmodel/logoutUser.py
-            which calls resetCredentials, this bypasses the PAS logout.
+    @staticmethod
+    def logout(request, response):
+        """
+        Performs the Auth0 Logout by deleting the Auth0 SessionInfo from the
+        session object and redirecting to the Auth0 logout endpoint.
         """
         if Auth0.session_key in request.SESSION:
+            log.debug('Removing Auth0 session info')
             del request.SESSION[Auth0.session_key]
         conf = getAuth0Conf()
         if conf:
+            log.info('Redirecting user to Auth0 logout')
             response.redirect('%sv2/logout?' % conf['tenant'] +
                               'client_id=%s&' % conf['clientid'] +
                               'returnTo=%s/zport/dmd' % getZenossURI(request),
                               lock=True)
-            log.info('Redirecting user to Auth0 logout')
+
+
+    def resetCredentials(self, request, response):
+        """resetCredentials satisfies the PluggableAuthService
+            ICredentialsResetPlugin interface.
+        Redirects to the ZING logout url.  ZING will handle logging out of Auth0
+            by calling the /zport/dmd/Auth0Logout endpoint on each CZ instance.
+        NOTE:
+        Logging out of the UI calls Products/ZenModel/skins/zenmodel/logoutUser.py
+            which calls resetCredentials, this bypasses the PAS logout.
+        """
+        response.redirect("{}/logout".format(getZingURI(request)))
 
 
     def extractCredentials(self, request):
