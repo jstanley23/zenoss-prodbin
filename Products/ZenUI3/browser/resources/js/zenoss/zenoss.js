@@ -391,10 +391,48 @@ Ext.Direct.on('exception', function(e) {
         window.location.reload();
         return;
     }
+
     var dialogId = "serverExceptionDialog", cmp;
     cmp = Ext.getCmp(dialogId);
     if(cmp) {
         cmp.destroy();
+    }
+
+    // For CZ, if a failing XMLHttpRequest can't connect to the server, the
+    // most likely cause is an Authentication error.  In testing, Chrome caught
+    // a local cross-scripting error, but we don't get any distinguishing error
+    // messages in the XHR error (this has to do with security because the script
+    // attempting the call may be malicious).
+    if (Zenoss.env.CSE_VIRTUAL_ROOT && e.message === "Unable to connect to the server.") {
+
+        // If the exception e.code is xhr, go ahead and refresh the page.  In the
+        // case of an Auth0 error this will redirect them to the login page.
+        if (e.code === Ext.Direct.exceptions.TRANSPORT) {
+            window.location.reload();
+            return;
+        }
+
+        // Don't display a generic "Unable to connect to the server" page.  Present
+        // the user with a connection error.  If this is a temporary condition, the dialog
+        // will be removed automatically.
+        Ext.create('Zenoss.dialog.SimpleMessageDialog', {
+            id: dialogId,
+            title: _t('Server Exception'),
+            message: '<p>' + _t('The server is temporarily unavailable') + '</p>' +
+            '<p>' + _t('Please wait while the connection is reestablished') + ', ' +
+            _t('or reload the page to try again.') + '</p>' ,
+            buttons: [{
+                xtype: 'DialogButton',
+                text: _t('RELOAD'),
+                handler: function() {
+                    window.location.reload();
+                }
+            }, {
+                xtype: 'DialogButton',
+                text: _t('DISMISS')
+            }]
+        }).show();
+        return;
     }
 
     Ext.create('Zenoss.dialog.SimpleMessageDialog', {
